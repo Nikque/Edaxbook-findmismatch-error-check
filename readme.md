@@ -14,7 +14,7 @@
 ## 使用方法
 1. `book.dat`（Edax形式のブックファイル）を実行ファイルと同じディレクトリに配置します。bookファイルそのものは各自ご用意ください。
 2. プログラムを実行します。
-3. 結果は`mismatched_positions.txt`ファイルに出力されます。そのままedax runnnerによって学習が可能です。設定したデバッグログレベルに応じて`debuglog,txt`も出力されます。
+3. 結果は`mismatched_positions.txt`ファイルに出力されます。そのままedax runnnerによって学習が可能です。設定したデバッグログレベルに応じて`debuglog.txt`も出力されます。
 
 
 
@@ -140,7 +140,7 @@ move値がパスやnoneの値を取るときの挙動を正しく設定。これ
 ## ライセンス
 このプロジェクトはMITライセンスの下で公開されています。
 
-Copyright (c) [2024] [わんりゅー]
+(c) [2024] [わんりゅー]
 
 詳細は以下のURLをご覧ください：
 https://licenses.opensource.jp/MIT/MIT.html
