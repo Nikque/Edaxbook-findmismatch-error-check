@@ -663,46 +663,6 @@ void main_process_recursive(Position& current_position, std::string current_kifu
     }
 }
 
-/*
-void main_process_get_children(Position& current_position, std::string current_kifu, const std::string& output_path, PositionManager& manager, int mode){
-    Position child_position;
-    std::string new_kifu, transformation_name;
-    uint8_t move;
-
-    std::tie(child_position, new_kifu, transformation_name, move) = get_children(manager);
-
-    // 最終関数起動条件を満たした時、理由と共にデバッグログに出力して起動
-    if (transformation_name == "recreate_parent_position" || transformation_name == "child_not_found") {
-        manager.debug_log("recreate_parent_position. Reason: " + transformation_name, PositionManager::LogLevel::DEBUG);
-        main_process_recreate_parent_position(current_position, new_kifu, output_path, manager, mode);
-    }
-    // 比較関数と不一致の場合出力をする関数を呼び出し
-    else {
-        bool mismatch = judge_mismatch(child_position, current_position, move, mode, manager);
-        if (mismatch) {
-            mismatch_process(child_position, new_kifu, transformation_name, output_path, manager,
-                child_position.eval_value, current_position.eval_value, mode);
-        }
-
-        // 親ポジションを更新
-        manager.current_position = child_position;
-        manager.current_kifu = new_kifu;
-
-        // 先頭へ戻る
-        main_process_recursive(child_position, new_kifu, output_path, manager, mode);
-    }
-}
-*/
-/*
-void main_process_recreate_parent_position(Position& current_position, std::string current_kifu, const std::string& output_path, PositionManager& manager, int mode){
-    Position new_parent_position;
-    std::string new_kifu, transformation;
-    std::tie(new_parent_position, new_kifu, transformation) = recreate_parent_position(current_kifu, manager);
-    manager.debug_log("New kifu after recreate_parent_position: " + new_kifu, PositionManager::LogLevel::DEBUG);
-    main_process_recursive(new_parent_position, new_kifu, output_path, manager, mode);
-}
-*/
-
 // メイン関数　本来スタック管理と不一致の発見は関数を分けるべきなんだろうけれども　最初の部分は開始処理
 void main_process(const std::string& output_path, PositionManager& manager, int mode) {
     try {
@@ -774,16 +734,6 @@ std::tuple<Position, std::string, std::string, uint8_t> get_children(PositionMan
             manager.debug_log("Leaf with move value 65 encountered. Skipping processing.", PositionManager::LogLevel::DEBUG);
         }
 
-        /*
-        // すべての有効なリンクとリーフが訪問済みの場合
-        if (all_visited) {
-            // 返値: 空のポジション、現在の棋譜、"recreate_parent_position"文字列、0のタプル（新しい親ポジションの生成を指示）
-            return std::make_tuple(Position(), manager.current_kifu, "recreate_parent_position", static_cast<uint8_t>(0));
-        }
-        // Child not found の場合
-        // 返値: 空のポジション、現在の棋譜、"child_not_found"文字列、0のタプル（子ポジションが見つからなかったことを示す）
-        //return std::make_tuple(Position(), manager.current_kifu, "child_not_found", static_cast<uint8_t>(0));
-        */
         // 返値: 空のポジション、現在の棋譜、"recreate_parent_position"文字列、0のタプル（新しい親ポジションの生成を指示）
         return std::make_tuple(Position(), manager.current_kifu, "recreate_parent_position", static_cast<uint8_t>(0));
     }
@@ -1186,74 +1136,6 @@ inline Position undo_flip_stones(PositionManager& manager) {
     // 返値: 石を裏返す前の状態に戻したポジション
     return Position{ my_stones, opponent_stones, {}, {0, 0, false}, eval_value };
 }
-
-/*
-//　最終関数の名前変更済　新しい親ポジションを作るよ
-std::tuple<Position, std::string, std::string> recreate_parent_position(std::string kifu, PositionManager& manager) {
-    try {
-        while (!kifu.empty()) {
-            Position current_position = undo_flip_stones(manager);
-            std::string new_kifu = kifu.substr(0, kifu.size() - 2);
-            manager.debug_log("Generating new parent from kifu: " + new_kifu, PositionManager::LogLevel::DEBUG);
-
-            // 正規化前の盤面情報を保存
-            Position original_position = current_position;
-            // 正規化
-            auto [normalized_position, transformation] = normalize_position(
-                current_position.my_stones, current_position.opponent_stones, manager
-            );
-            // bookを読んできて判定
-            const Position* book_position = read_position(std::get<0>(normalized_position), std::get<1>(normalized_position));
-            if (book_position) {
-                manager.debug_log("Book position found: " + format_position(*book_position), PositionManager::LogLevel::DEBUG);
-                Position new_parent_position = *book_position;
-
-                // 一つでもVisitedがfalseのリンクやリーフがあるか
-                bool unvisited_exists = std::any_of(new_parent_position.links.begin(), new_parent_position.links.end(),
-                    [](const Link& link) { return !link.visited; }) || !new_parent_position.leaf.visited;
-
-                if (unvisited_exists) {
-                    manager.debug_log("Unvisited links or leaf found, setting new parent position", PositionManager::LogLevel::DEBUG);
-
-                    // 盤面情報を元に戻す
-                    new_parent_position.my_stones = original_position.my_stones;
-                    new_parent_position.opponent_stones = original_position.opponent_stones;
-
-                    // リンクとリーフ情報を正規化前の状態に戻す
-                    for (auto& link : new_parent_position.links) {
-                        link.move = denormalize_move(link.move, transformation, manager);
-                    }
-                    new_parent_position.leaf.move = denormalize_move(new_parent_position.leaf.move, transformation, manager);
-
-                    // 返値: 新しい親ポジション、更新された棋譜、変換名のタプル
-                    return std::make_tuple(new_parent_position, new_kifu, transformation);
-                }
-            }
-            // 棋譜を更新して再ループ
-            kifu = new_kifu;
-            manager.debug_log("Updated kifu in recreate_parent_position: ", PositionManager::LogLevel::DEBUG);
-        }
-        // これがプログラム正常終了の条件
-        manager.debug_log("Kifu is empty, exiting program.", PositionManager::LogLevel::WARNING);
-
-        // 最終ループ数を出力、デバッグログにも最終ループ数を記録
-        std::cout << "\r" << manager.loop_count << " Links or Leaf processed (Final)" << std::endl;
-        manager.debug_log("Total Links or Leaf processed: " + std::to_string(manager.loop_count), PositionManager::LogLevel::WARNING);
-
-        // プログラム全体の実行時間を計算して実行時間をログに出力、コンソールにも実行時間を出力
-        auto program_end_time = std::chrono::steady_clock::now();
-        std::chrono::duration<double> program_duration = program_end_time - manager.program_start_time;
-        manager.debug_log("Total program execution time: " + std::to_string(program_duration.count()) + " seconds", PositionManager::LogLevel::WARNING);
-        std::cout << "Total program execution time: " << program_duration.count() << " seconds" << std::endl;
-        std::exit(0);
-    }
-    catch (const std::exception& e) {
-        manager.debug_log("Exception in recreate_parent_position: " + std::string(e.what()), PositionManager::LogLevel::ERROR);
-        std::cerr << "Critical error in recreate_parent_position: " << e.what() << std::endl;
-        std::exit(1);
-    }
-}
-*/
 
 // 主にデバッグ用 mode5で動作。特定のポジション情報をbookから読み込んでdebuglogに表示するだけ
 void read_specified_positions(const std::string& input_file_path, PositionManager& manager) {
