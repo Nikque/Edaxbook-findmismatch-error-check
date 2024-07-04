@@ -415,6 +415,9 @@ void update_book_position(const std::pair<uint64_t, uint64_t>& key, const Positi
 std::tuple<Position, std::string, std::string> recreate_parent_position(std::string kifu, PositionManager& manager);
 void mismatch_process(const Position& child_position, const std::string& kifu, const std::string& transformation_name, const std::string& output_path, PositionManager& manager, int8_t child_eval, int8_t parent_eval, int mode);
 int8_t calculate_parent_eval(const Position& parent_position, uint8_t move, PositionManager& manager);
+void main_process_update_parent_position(Position& current_position, std::string current_kifu, const std::string& output_path, PositionManager& manager, int mode);
+void main_process_get_children(Position& current_position, std::string current_kifu, const std::string& output_path, PositionManager& manager, int mode);
+void main_process_recreate_parent_position(Position& current_position, std::string current_kifu, const std::string& output_path, PositionManager& manager, int mode);
 
 // 親ポジションのリンクやリーフのうち最良のものの評価値を取得する関数
 inline int8_t calculate_parent_eval(const Position& parent_position, uint8_t move, PositionManager& manager) {
@@ -609,6 +612,66 @@ void mismatch_process(const Position& child_position, const std::string& kifu, c
     }
 }
 
+void main_process_update_parent_position(Position& current_position, std::string current_kifu, const std::string& output_path, PositionManager& manager, int mode){
+    manager.current_position = current_position;
+    manager.current_kifu = current_kifu;
+    manager.debug_log("Current position: " + format_position(current_position), PositionManager::LogLevel::DEBUG);
+    manager.debug_log("Current kifu: " + current_kifu, PositionManager::LogLevel::DEBUG);
+
+    // ループカウンターをインクリメント
+    manager.loop_count++;
+
+    // ループごとにコマンドラインの表示を更新（表示頻度を調整可能）
+    if (manager.loop_count == 1 || manager.loop_count % 100000 == 0) {
+        std::cout << "\r" << manager.loop_count << " Links or Leaf processed" << std::flush;
+    }
+    // パスの処理
+    if (current_kifu.length() >= 4 && current_kifu.substr(current_kifu.length() - 4) == "Pass") {
+        current_kifu = current_kifu.substr(0, current_kifu.length() - 4);
+        manager.debug_log("Pass detected, updated kifu: " + current_kifu, PositionManager::LogLevel::DEBUG);
+        manager.current_kifu = current_kifu;
+    }
+
+    main_process_get_children(current_position, current_kifu, output_path, manager, mode);
+}
+
+void main_process_get_children(Position& current_position, std::string current_kifu, const std::string& output_path, PositionManager& manager, int mode){
+    Position child_position;
+    std::string new_kifu, transformation_name;
+    uint8_t move;
+
+    std::tie(child_position, new_kifu, transformation_name, move) = get_children(manager);
+
+    // 最終関数起動条件を満たした時、理由と共にデバッグログに出力して起動
+    if (transformation_name == "recreate_parent_position" || transformation_name == "child_not_found") {
+        manager.debug_log("recreate_parent_position. Reason: " + transformation_name, PositionManager::LogLevel::DEBUG);
+        main_process_recreate_parent_position(current_position, new_kifu, output_path, manager, mode);
+    }
+    // 比較関数と不一致の場合出力をする関数を呼び出し
+    else {
+        bool mismatch = judge_mismatch(child_position, current_position, move, mode, manager);
+        if (mismatch) {
+            mismatch_process(child_position, new_kifu, transformation_name, output_path, manager,
+                child_position.eval_value, current_position.eval_value, mode);
+        }
+
+        // 親ポジションを更新
+        manager.current_position = child_position;
+        manager.current_kifu = new_kifu;
+
+        // 先頭へ戻る
+        main_process_update_parent_position(child_position, new_kifu, output_path, manager, mode);
+    }
+}
+
+void main_process_recreate_parent_position(Position& current_position, std::string current_kifu, const std::string& output_path, PositionManager& manager, int mode){
+    Position new_parent_position;
+    std::string new_kifu, transformation;
+    std::tie(new_parent_position, new_kifu, transformation) = recreate_parent_position(current_kifu, manager);
+    manager.debug_log("New kifu after recreate_parent_position: " + new_kifu, PositionManager::LogLevel::DEBUG);
+    main_process_update_parent_position(new_parent_position, new_kifu, output_path, manager, mode);
+}
+
 // メイン関数　本来スタック管理と不一致の発見は関数を分けるべきなんだろうけれども　最初の部分は開始処理
 void main_process(const std::string& output_path, PositionManager& manager, int mode) {
     try {
@@ -626,76 +689,8 @@ void main_process(const std::string& output_path, PositionManager& manager, int 
         manager.current_position = *initial_book_position;
         manager.current_kifu = "";
 
-        // スタックに初期状態をプッシュ
-        std::stack<std::tuple<Position, std::string, std::string>> stack;
-        stack.emplace(manager.current_position, manager.current_kifu, "main_process");
-
-        // 次にどの関数を処理するかの決定
-        while (!stack.empty()) {
-            auto [current_position, current_kifu, function_name] = stack.top();
-            stack.pop();
-
-            // 最初に現在の親ポジションを更新
-            if (function_name == "main_process") {
-                manager.current_position = current_position;
-                manager.current_kifu = current_kifu;
-                manager.debug_log("Current position: " + format_position(current_position), PositionManager::LogLevel::DEBUG);
-                manager.debug_log("Current kifu: " + current_kifu, PositionManager::LogLevel::DEBUG);
-
-                // ループカウンターをインクリメント
-                manager.loop_count++;
-
-                // ループごとにコマンドラインの表示を更新（表示頻度を調整可能）
-                if (manager.loop_count == 1 || manager.loop_count % 100000 == 0) {
-                    std::cout << "\r" << manager.loop_count << " Links or Leaf processed" << std::flush;
-                }
-                // パスの処理
-                if (current_kifu.length() >= 4 && current_kifu.substr(current_kifu.length() - 4) == "Pass") {
-                    current_kifu = current_kifu.substr(0, current_kifu.length() - 4);
-                    manager.debug_log("Pass detected, updated kifu: " + current_kifu, PositionManager::LogLevel::DEBUG);
-                    manager.current_kifu = current_kifu;
-                }
-
-                stack.emplace(current_position, current_kifu, "get_children");
-            }
-            // スタック管理
-            else if (function_name == "get_children") {
-                Position child_position;
-                std::string new_kifu, transformation_name;
-                uint8_t move;
-
-                std::tie(child_position, new_kifu, transformation_name, move) = get_children(manager);
-
-                // 最終関数起動条件を満たした時、理由と共にデバッグログに出力して起動
-                if (transformation_name == "recreate_parent_position" || transformation_name == "child_not_found") {
-                    manager.debug_log("recreate_parent_position. Reason: " + transformation_name, PositionManager::LogLevel::DEBUG);
-                    stack.emplace(current_position, new_kifu, "recreate_parent_position");
-                }
-                // 比較関数と不一致の場合出力をする関数を呼び出し
-                else {
-                    bool mismatch = judge_mismatch(child_position, current_position, move, mode, manager);
-                    if (mismatch) {
-                        mismatch_process(child_position, new_kifu, transformation_name, output_path, manager,
-                            child_position.eval_value, current_position.eval_value, mode);
-                    }
-
-                    // 親ポジションを更新
-                    manager.current_position = child_position;
-                    manager.current_kifu = new_kifu;
-
-                    // 先頭へ戻る
-                    stack.emplace(child_position, new_kifu, "main_process");
-                }
-            }
-            // この処理行うタイミングがどこなのかちょっとわかりにくい 最終関数から帰ってきて頭に戻る間の処理
-            else if (function_name == "recreate_parent_position") {
-                Position new_parent_position;
-                std::string new_kifu, transformation;
-                std::tie(new_parent_position, new_kifu, transformation) = recreate_parent_position(current_kifu, manager);
-                manager.debug_log("New kifu after recreate_parent_position: " + new_kifu, PositionManager::LogLevel::DEBUG);
-                stack.emplace(new_parent_position, new_kifu, "main_process");
-            }
-        }
+        // メイン処理 (再帰的に実装)
+        main_process_update_parent_position(manager.current_position, manager.current_kifu, output_path, manager, mode);
     }
     // エラー処理が起動される日は来るのだろうか
     catch (const std::exception& e) {
