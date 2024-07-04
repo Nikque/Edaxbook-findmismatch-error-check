@@ -267,7 +267,7 @@ void load_all_positions(const std::string& book_path, PositionManager& manager) 
     size_t estimated_positions = static_cast<size_t>(estimated_positions_double);
 
     // 負荷係数を考慮してバケット数を計算
-    size_t estimated_buckets = static_cast<size_t>(estimated_positions *1.10);
+    size_t estimated_buckets = static_cast<size_t>(estimated_positions * 1.10);
 
     // reserveの前にバケット数を出力
     manager.debug_log("Estimated number of buckets: " + std::to_string(estimated_buckets), PositionManager::LogLevel::INFO);
@@ -327,7 +327,7 @@ void load_all_positions(const std::string& book_path, PositionManager& manager) 
             uint8_t link_move = 0;
             if (fread(&link_value, sizeof(link_value), 1, fp) != 1) break;
             if (fread(&link_move, sizeof(link_move), 1, fp) != 1) break;
-            links.emplace_back(rotate_move_180(link_move), link_value, false);
+            links.emplace_back(Link{rotate_move_180(link_move), link_value, false});
         }
 
         int8_t leaf_eval = 0;
