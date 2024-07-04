@@ -729,6 +729,11 @@ void main_process(const std::string& output_path, PositionManager& manager, int 
         std::cerr << "Critical error in main_process: " << e.what() << std::endl;
         std::exit(1);// プログラムを終了
     }
+
+    // 最終ループ数を出力、デバッグログにも最終ループ数を記録
+    std::cout << "\r" << manager.loop_count << " Links or Leaf processed (Final)" << std::endl;
+    manager.debug_log("Total Links or Leaf processed: " + std::to_string(manager.loop_count), PositionManager::LogLevel::WARNING);
+
     // プログラム全体の実行時間を計算して実行時間をログに出力、コンソールにも実行時間を出力
     auto program_end_time = std::chrono::steady_clock::now();
     std::chrono::duration<double> program_duration = program_end_time - manager.program_start_time;
