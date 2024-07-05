@@ -76,13 +76,11 @@ public:
     std::chrono::steady_clock::time_point program_start_time;
     size_t loop_count = 0;
 
-    // ポジションマネージャーの関数宣言部分
+    // ポジションマネージャーの変数宣言部分
     std::string book_path;
     std::string debug_log_path;
     Position current_position;
     std::string current_kifu;
-    Position new_parent_position;
-    std::stack<std::tuple<uint64_t, uint64_t, int8_t>> posstack;
     mutable LogLevel log_level;
     bool auto_adjust_log_level;
     LogLevel adjusted_log_level;
@@ -400,7 +398,6 @@ std::tuple<Position, std::string> create_position_data(PositionManager& manager,
 std::tuple<std::string, std::string> convert_move_to_str(int move, const std::string& kifu, PositionManager& manager);
 Position flip_stones(const Position& position, const std::string& move_str, PositionManager& manager);
 uint64_t shift(uint64_t bit, int direction);
-Position undo_flip_stones(PositionManager& manager);
 std::tuple<std::tuple<uint64_t, uint64_t>, std::string> normalize_position(uint64_t my_stones, uint64_t opponent_stones, PositionManager& manager);
 int denormalize_move(int move, const std::string& transformation_name, PositionManager& manager);
 int rotate_move_90(int move);
@@ -624,7 +621,6 @@ void main_process_recursive(Position& current_position, std::string current_kifu
         manager.current_kifu = current_kifu;
     }
 
-    //main_process_get_children(current_position, current_kifu, output_path, manager, mode);
     // 子positionを得る
     Position child_position;
     std::string new_kifu, transformation_name;
@@ -925,8 +921,6 @@ inline uint64_t flip_all_directions(uint64_t player, uint64_t opponent, uint64_t
 Position flip_stones(const Position& position, const std::string& move_str, PositionManager& manager) {
     uint64_t my_stones = position.my_stones;
     uint64_t opponent_stones = position.opponent_stones;
-    //　undo flip stones関数用に現在の盤面をスタックへ保存
-    manager.posstack.push(std::make_tuple(my_stones, opponent_stones, position.eval_value));
 
     // 打つ手の変換
     int move_index = ((8 * (8 - (move_str[1] - '0'))) + (7 - static_cast<int>(move_str[0]) + 'a'));
@@ -940,7 +934,7 @@ Position flip_stones(const Position& position, const std::string& move_str, Posi
     // 返値: 石を裏返した後の新しいポジション
     return Position{ opponent_stones, my_stones, {}, {0, 0, false}, static_cast<int8_t>(-position.eval_value) };
 }
-// 返値: 石を裏返した後の新しいポジション
+
 //　デルタ関数　これが早いらしい
 template<uint64_t Mask, int Delta>
 constexpr uint64_t delta_swap(uint64_t x) {
@@ -1123,15 +1117,6 @@ const Position* read_position(uint64_t my_stones, uint64_t opponent_stones) {
 //　Visitedフラグ更新用
 void update_book_position(const std::pair<uint64_t, uint64_t>& key, const Position& position) {
     book_positions[key] = position;
-}
-
-//　undo flipを使うのは最終関数のみなのでインライン実装　flip stonesで作っておいたスタックを引き出す形で処理を行う
-inline Position undo_flip_stones(PositionManager& manager) {
-    const auto& [my_stones, opponent_stones, eval_value] = manager.posstack.top();
-    manager.posstack.pop();
-
-    // 返値: 石を裏返す前の状態に戻したポジション
-    return Position{ my_stones, opponent_stones, {}, {0, 0, false}, eval_value };
 }
 
 // 主にデバッグ用 mode5で動作。特定のポジション情報をbookから読み込んでdebuglogに表示するだけ
