@@ -412,7 +412,6 @@ int flip_move_diag_a8h1(int move);
 int normalize_move(int move, const std::string& transformation_name, PositionManager& manager);
 const Position* read_position(uint64_t my_stones, uint64_t opponent_stones);
 void update_book_position(const std::pair<uint64_t, uint64_t>& key, const Position& position);
-std::tuple<Position, std::string, std::string> recreate_parent_position(std::string kifu, PositionManager& manager);
 void mismatch_process(const Position& child_position, const std::string& kifu, const std::string& transformation_name, const std::string& output_path, PositionManager& manager, int8_t child_eval, int8_t parent_eval, int mode);
 int8_t calculate_parent_eval(const Position& parent_position, uint8_t move, PositionManager& manager);
 void main_process_recursive(Position& current_position, std::string current_kifu, const std::string& output_path, PositionManager& manager, int mode);
