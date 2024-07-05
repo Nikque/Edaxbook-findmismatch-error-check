@@ -416,8 +416,6 @@ std::tuple<Position, std::string, std::string> recreate_parent_position(std::str
 void mismatch_process(const Position& child_position, const std::string& kifu, const std::string& transformation_name, const std::string& output_path, PositionManager& manager, int8_t child_eval, int8_t parent_eval, int mode);
 int8_t calculate_parent_eval(const Position& parent_position, uint8_t move, PositionManager& manager);
 void main_process_recursive(Position& current_position, std::string current_kifu, const std::string& output_path, PositionManager& manager, int mode);
-void main_process_get_children(Position& current_position, std::string current_kifu, const std::string& output_path, PositionManager& manager, int mode);
-void main_process_recreate_parent_position(Position& current_position, std::string current_kifu, const std::string& output_path, PositionManager& manager, int mode);
 
 // 親ポジションのリンクやリーフのうち最良のものの評価値を取得する関数
 inline int8_t calculate_parent_eval(const Position& parent_position, uint8_t move, PositionManager& manager) {
@@ -641,10 +639,11 @@ void main_process_recursive(Position& current_position, std::string current_kifu
         std::tie(child_position, new_kifu, transformation_name, move) = get_children(manager, current_position);
 
         // 最終関数起動条件を満たした時、理由と共にデバッグログに出力して起動
-        if (transformation_name == "recreate_parent_position" || transformation_name == "child_not_found") {
-            manager.debug_log("recreate_parent_position. Reason: " + transformation_name, PositionManager::LogLevel::DEBUG);
+        if (transformation_name == "child_not_found") {
+            manager.debug_log("Child position not found. Ending current branch.", PositionManager::LogLevel::DEBUG);
             break;
         }
+            
         // 比較関数と不一致の場合出力をする関数を呼び出し
         else {
             bool mismatch = judge_mismatch(child_position, current_position, move, mode, manager);
@@ -733,9 +732,8 @@ std::tuple<Position, std::string, std::string, uint8_t> get_children(PositionMan
         else if (position.leaf.move == 65) {
             manager.debug_log("Leaf with move value 65 encountered. Skipping processing.", PositionManager::LogLevel::DEBUG);
         }
-
-        // 返値: 空のポジション、現在の棋譜、"recreate_parent_position"文字列、0のタプル（新しい親ポジションの生成を指示）
-        return std::make_tuple(Position(), manager.current_kifu, "recreate_parent_position", static_cast<uint8_t>(0));
+        // 返値: 空のポジション、現在の棋譜、"child_not_found"文字列、0のタプル（探索終了を指示）
+        return std::make_tuple(Position(), manager.current_kifu, "child_not_found", static_cast<uint8_t>(0));
     }
     catch (const std::exception& e) {
         manager.debug_log("Critical error in get_children: " + std::string(e.what()), PositionManager::LogLevel::ERROR);
