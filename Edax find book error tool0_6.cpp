@@ -809,7 +809,6 @@ std::tuple<Position, std::string, std::string> process_position(Position& positi
 
     // 正規化された親ポジションの該当する手のVisitedフラグを直接更新
     uint8_t normalized_move = normalize_move(move, parent_transformation, manager);
-
 　  // 直接更新したいのでconstが付いているread_position関数は使えない
     auto it = book_positions.find(normalized_parent_key);
     if (it != book_positions.end()) {
