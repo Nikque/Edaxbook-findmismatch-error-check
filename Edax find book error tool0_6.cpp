@@ -448,7 +448,6 @@ int flip_move_diag_a1h8(int move);
 int flip_move_diag_a8h1(int move);
 int normalize_move(int move, const std::string& transformation_name, PositionManager& manager);
 const Position* read_position(uint64_t my_stones, uint64_t opponent_stones);
-void update_book_position(const std::pair<uint64_t, uint64_t>& key, const Position& position);
 void mismatch_process(const Position& child_position, const std::string& kifu, const std::string& transformation_name, const std::string& output_path, PositionManager& manager, int8_t child_eval, int8_t parent_eval, int mode);
 int8_t calculate_parent_eval(const Position& parent_position, uint8_t move, PositionManager& manager);
 void main_process_recursive(Position& current_position, std::string current_kifu, const std::string& output_path, PositionManager& manager, int mode);
@@ -800,30 +799,31 @@ std::tuple<Position, std::string, std::string> process_position(Position& positi
     }
     manager.debug_log("Book position retrieved: " + format_position(*normalized_parent_position), PositionManager::LogLevel::DEBUG);
 
-    // 正規化された親ポジションの該当する手のVisitedフラグを更新　normalized moveがここでリンクリーフ共に必要となる
+    // 正規化された親ポジションの該当する手のVisitedフラグを直接更新
     uint8_t normalized_move = normalize_move(move, parent_transformation, manager);
-    Position updated_parent_position = *normalized_parent_position;
-    bool updated = false;
-    for (Link& link : updated_parent_position.links) {
-        manager.debug_log("Checking link: move=" + std::to_string(link.move) + ", normalized_move=" + std::to_string(normalized_move), PositionManager::LogLevel::DEBUG);
-        if (link.move == normalized_move) {
-            link.visited = true;
-            manager.debug_log("Parent link visited flag updated: move=" + std::to_string(normalized_move) + ", visited=" + (link.visited ? "True" : "False"), PositionManager::LogLevel::DEBUG);
+    auto it = book_positions.find(normalized_parent_key);
+    if (it != book_positions.end()) {
+        Position& book_position = it->second;
+        bool updated = false;
+        for (Link& link : book_position.links) {
+            if (link.move == normalized_move) {
+                link.visited = true;
+                manager.debug_log("Parent link visited flag updated: move=" + std::to_string(normalized_move) + ", visited=True", PositionManager::LogLevel::DEBUG);
+                updated = true;
+                break;
+            }
+        }
+        // リーフも同様に処理
+        if (!updated && book_position.leaf.move == normalized_move) {
+            book_position.leaf.visited = true;
+            manager.debug_log("Parent leaf visited flag updated: move=" + std::to_string(normalized_move) + ", visited=True", PositionManager::LogLevel::DEBUG);
             updated = true;
-            break;
+        }
+            // 更新された正規化親ポジションをbook_positionに直接保存
+        if (updated) {
+            manager.debug_log("Updated parent book position: " + format_position(book_position), PositionManager::LogLevel::DEBUG);
         }
     }
-    // リーフも同様に処理
-    if (!updated && updated_parent_position.leaf.move == normalized_move) {
-        manager.debug_log("Checking leaf: move=" + std::to_string(updated_parent_position.leaf.move) + ", normalized_move=" + std::to_string(normalized_move), PositionManager::LogLevel::DEBUG);
-        updated_parent_position.leaf.visited = true;
-        manager.debug_log("Parent leaf visited flag updated: move=" + std::to_string(normalized_move) + ", visited=" + (updated_parent_position.leaf.visited ? "True" : "False"), PositionManager::LogLevel::DEBUG);
-        updated = true;
-    }
-
-    // 更新された正規化親ポジションをbook_positionsに保存
-    update_book_position(normalized_parent_key, updated_parent_position);
-    manager.debug_log("Updated parent book position: " + format_position(updated_parent_position), PositionManager::LogLevel::DEBUG);
 
     // 子ポジションを正規化し、bookと照合する
     std::tuple<uint64_t, uint64_t> normalized_child_position;
@@ -1152,11 +1152,6 @@ inline int flip_move_diag_a8h1(int move) {
 const Position* read_position(uint64_t my_stones, uint64_t opponent_stones) {
     auto it = book_positions.find(std::make_pair(my_stones, opponent_stones));
     return (it != book_positions.end()) ? &(it->second) : nullptr;
-}
-
-//　Visitedフラグ更新用
-void update_book_position(const std::pair<uint64_t, uint64_t>& key, const Position& position) {
-    book_positions[key] = position;
 }
 
 // 主にデバッグ用 mode5で動作。特定のポジション情報をbookから読み込んでdebuglogに表示するだけ
