@@ -266,26 +266,26 @@ void load_all_positions(const std::string& book_path, PositionManager& manager) 
 
     // 負荷係数を考慮してバケット数を計算
     size_t estimated_buckets = static_cast<size_t>(estimated_positions * 1.10);
-
-    // reserveの前にバケット数を出力
-    manager.debug_log("Estimated number of buckets: " + std::to_string(estimated_buckets), PositionManager::LogLevel::INFO);
-
+    
+    // reserveの前にバケット数を出力　そしてreserve
+    manager.debug_log("Estimated number of buckets: " + std::to_string(estimated_buckets), PositionManager::LogLevel::DEBUG);
     book_positions.reserve(estimated_buckets);
 
-    // reserveの後に実際のバケット数を出力
-    manager.debug_log("Actual bucket count after reserve: " + std::to_string(book_positions.bucket_count()), PositionManager::LogLevel::INFO);
-    manager.debug_log("Estimated number of positions: " + std::to_string(estimated_positions), PositionManager::LogLevel::INFO);
+    if (manager.log_level == PositionManager::LogLevel::DEBUG) {
+        manager.debug_log("Actual bucket count after reserve: " + std::to_string(book_positions.bucket_count()), PositionManager::LogLevel::DEBUG);
+        manager.debug_log("Estimated number of positions: " + std::to_string(estimated_positions), PositionManager::LogLevel::DEBUG);
 
-    // バケットのメモリ使用量（ポインタサイズ）
-    size_t bucket_memory = book_positions.bucket_count() * sizeof(void*);
+        // バケットのメモリ使用量（ポインタサイズ）
+        size_t bucket_memory = book_positions.bucket_count() * sizeof(void*);
 
-    // 要素のメモリ使用量
-    constexpr double bytes_per_position = 47.0;  // Position構造体の平均サイズ
-    double element_memory = estimated_positions * bytes_per_position;
+        // 要素のメモリ使用量
+        constexpr double bytes_per_position = 47.0;  // Position構造体の平均サイズ
+        double element_memory = estimated_positions * bytes_per_position;
 
-    // 合計推定メモリ使用量
-    double total_estimated_memory_mb = (bucket_memory + element_memory) / (1048576);
-    manager.debug_log("Estimated total memory usage: " + std::to_string(total_estimated_memory_mb) + " MB", PositionManager::LogLevel::INFO);
+        // 合計推定メモリ使用量
+        double total_estimated_memory_mb = (bucket_memory + element_memory) / (1048576);
+        manager.debug_log("Estimated total memory usage: " + std::to_string(total_estimated_memory_mb) + " MB", PositionManager::LogLevel::DEBUG);
+    }
 
     // ヘッダーをスキップ
     fseek(fp, 42, SEEK_SET);
@@ -354,14 +354,39 @@ void load_all_positions(const std::string& book_path, PositionManager& manager) 
 
     manager.debug_log("Actual number of positions loaded: " + std::to_string(positions_loaded), PositionManager::LogLevel::INFO);
 
-    // 実際のメモリ使用量の測定の推測
-    double actual_memory_mb = (positions_loaded * 47.0) / (1048576);
-    manager.debug_log("Estimated actual memory usage: " + std::to_string(actual_memory_mb) + " MB", PositionManager::LogLevel::INFO);
+    if (manager.log_level == PositionManager::LogLevel::DEBUG) {
+        // unordered_mapのメモリ使用量を推定
+        size_t bucket_memory_actual = book_positions.bucket_count() * sizeof(void*);
+        size_t node_size = sizeof(std::pair<const std::pair<uint64_t, uint64_t>, Position>);
+        size_t aligned_node_size = (node_size + 15) & ~15;  // 16バイトアラインメント
+        size_t total_memory = bucket_memory_actual + (aligned_node_size * book_positions.size());
 
-    // ハッシュ関数の衝突回数の測定
-    size_t collisions = count_collisions(book_positions);
-    manager.debug_log("Number of hash collisions: " + std::to_string(collisions), PositionManager::LogLevel::INFO);
-    manager.debug_log("Collision rate: " + std::to_string(static_cast<double>(collisions) / positions_loaded), PositionManager::LogLevel::INFO);
+        // linksのメモリ使用量を推定
+        size_t total_links_memory = 0;
+        size_t vector_size = sizeof(std::vector<Link>);
+        for (const auto& pair : book_positions) {
+            const Position& pos = pair.second;
+            size_t links_capacity = pos.links.capacity();
+            size_t links_memory = vector_size + (links_capacity * sizeof(Link));
+            total_links_memory += links_memory;
+        }
+        total_memory += total_links_memory;
+
+        // メモリ使用量をデバッグログに出力
+        std::stringstream ss;
+        ss << "Estimated memory usage of book_positions:"
+            << "\n  Bucket memory: " << bucket_memory_actual << " bytes"
+            << "\n  Node size: " << node_size << " bytes (aligned to " << aligned_node_size << " bytes)"
+            << "\n  Links memory: " << total_links_memory << " bytes"
+            << "\n  Total memory: " << total_memory << " bytes"
+            << "\n  Total memory (MB): " << (total_memory / (1024.0 * 1024.0)) << " MB";
+        manager.debug_log(ss.str(), PositionManager::LogLevel::DEBUG);
+
+        // ハッシュ関数の衝突回数の測定
+        size_t collisions = count_collisions(book_positions);
+        manager.debug_log("Number of hash collisions: " + std::to_string(collisions), PositionManager::LogLevel::DEBUG);
+        manager.debug_log("Collision rate: " + std::to_string(static_cast<double>(collisions) / positions_loaded), PositionManager::LogLevel::DEBUG);
+    }
 
     // ファイル読み込み時間の測定
     auto end_time = std::chrono::high_resolution_clock::now();
