@@ -357,29 +357,43 @@ void load_all_positions(const std::string& book_path, PositionManager& manager) 
     if (manager.log_level == PositionManager::LogLevel::DEBUG) {
         // unordered_mapのメモリ使用量を推定
         size_t bucket_memory_actual = book_positions.bucket_count() * sizeof(void*);
-        size_t node_size = sizeof(std::pair<const std::pair<uint64_t, uint64_t>, Position>);
+
+        // ノードサイズの計算（vectorのサイズを除外）
+        size_t node_size = sizeof(std::pair<const std::pair<uint64_t, uint64_t>, Position>) - sizeof(std::vector<Link>);
         size_t aligned_node_size = (node_size + 15) & ~15;  // 16バイトアラインメント
-        size_t total_memory = bucket_memory_actual + (aligned_node_size * book_positions.size());
+
+        // ノードのメモリ（vectorを除く）
+        size_t nodes_memory = aligned_node_size * book_positions.size();
 
         // linksのメモリ使用量を推定
         size_t total_links_memory = 0;
-        size_t vector_size = sizeof(std::vector<Link>);
         for (const auto& pair : book_positions) {
             const Position& pos = pair.second;
-            size_t links_capacity = pos.links.capacity();
-            size_t links_memory = vector_size + (links_capacity * sizeof(Link));
+            size_t links_memory = pos.links.capacity() * sizeof(Link);
             total_links_memory += links_memory;
         }
-        total_memory += total_links_memory;
+
+        // 総メモリ使用量
+        size_t total_memory = bucket_memory_actual + nodes_memory + total_links_memory;
 
         // メモリ使用量をデバッグログに出力
         std::stringstream ss;
         ss << "Estimated memory usage of book_positions:"
             << "\n  Bucket memory: " << bucket_memory_actual << " bytes"
-            << "\n  Node size: " << node_size << " bytes (aligned to " << aligned_node_size << " bytes)"
+            << "\n  Node size (without vector): " << node_size << " bytes (aligned to " << aligned_node_size << " bytes)"
+            << "\n  Nodes memory: " << nodes_memory << " bytes"
             << "\n  Links memory: " << total_links_memory << " bytes"
             << "\n  Total memory: " << total_memory << " bytes"
             << "\n  Total memory (MB): " << (total_memory / (1024.0 * 1024.0)) << " MB";
+        manager.debug_log(ss.str(), PositionManager::LogLevel::DEBUG);
+
+        // Position構造体のサイズを出力
+        ss.str("");
+        ss << "Size of structures:"
+            << "\n  Position: " << sizeof(Position) << " bytes"
+            << "\n  Link: " << sizeof(Link) << " bytes"
+            << "\n  Leaf: " << sizeof(Leaf) << " bytes"
+            << "\n  std::vector<Link>: " << sizeof(std::vector<Link>) << " bytes";
         manager.debug_log(ss.str(), PositionManager::LogLevel::DEBUG);
 
         // ハッシュ関数の衝突回数の測定
