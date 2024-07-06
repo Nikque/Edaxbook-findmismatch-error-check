@@ -365,11 +365,12 @@ void load_all_positions(const std::string& book_path, PositionManager& manager) 
         // ノードのメモリ（vectorを除く）
         size_t nodes_memory = aligned_node_size * book_positions.size();
 
-        // linksのメモリ使用量を推定
+        // linksのメモリ使用量を推定（vectorオブジェクト自体のサイズを含む）
         size_t total_links_memory = 0;
+        size_t vector_size = sizeof(std::vector<Link>);
         for (const auto& pair : book_positions) {
             const Position& pos = pair.second;
-            size_t links_memory = pos.links.capacity() * sizeof(Link);
+            size_t links_memory = vector_size + (pos.links.capacity() * sizeof(Link));
             total_links_memory += links_memory;
         }
 
@@ -380,9 +381,9 @@ void load_all_positions(const std::string& book_path, PositionManager& manager) 
         std::stringstream ss;
         ss << "Estimated memory usage of book_positions:"
             << "\n  Bucket memory: " << bucket_memory_actual << " bytes"
-            << "\n  Node size (without vector): " << node_size << " bytes (aligned to " << aligned_node_size << " bytes)"
+            << "\n  Node size (excluding vector): " << node_size << " bytes (aligned to " << aligned_node_size << " bytes)"
             << "\n  Nodes memory: " << nodes_memory << " bytes"
-            << "\n  Links memory: " << total_links_memory << " bytes"
+            << "\n  Links memory (including vector objects): " << total_links_memory << " bytes"
             << "\n  Total memory: " << total_memory << " bytes"
             << "\n  Total memory (MB): " << (total_memory / (1024.0 * 1024.0)) << " MB";
         manager.debug_log(ss.str(), PositionManager::LogLevel::DEBUG);
