@@ -344,9 +344,17 @@ void load_all_positions(const std::string& book_path, PositionManager& manager) 
 
         book_positions.emplace(std::make_pair(my_stones, opponent_stones), std::move(position));
         positions_loaded++;
+
+        // 10万ポジションごとに進捗を表示
+        if (positions_loaded % 100000 == 0) {
+            std::cout << "\r" << positions_loaded << " Loading Completed" << std::flush;
+        }
     }
 
     fclose(fp);
+
+    // 最終的な読み込み数を表示
+    std::cout << "\r" << positions_loaded << " Loading Completed" << std::endl;
 
     // 読み込み時間測定終了
     auto read_end_time = std::chrono::high_resolution_clock::now();
@@ -801,6 +809,8 @@ std::tuple<Position, std::string, std::string> process_position(Position& positi
 
     // 正規化された親ポジションの該当する手のVisitedフラグを直接更新
     uint8_t normalized_move = normalize_move(move, parent_transformation, manager);
+
+　  // 直接更新したいのでconstが付いているread_position関数は使えない
     auto it = book_positions.find(normalized_parent_key);
     if (it != book_positions.end()) {
         Position& book_position = it->second;
