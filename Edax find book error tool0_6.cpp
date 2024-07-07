@@ -679,9 +679,8 @@ void main_process_recursive(Position& current_position, std::string current_kifu
             break;
         }
             
-        // 比較関数と不一致の場合出力をする関数を呼び出し
+        // 最初にパスの処理　その後比較関数と不一致の場合出力をする関数を呼び出し　
         else {
-        　　 // パスの処理（new_kifuに対して行う）
             if (new_kifu.length() >= 4 && new_kifu.substr(new_kifu.length() - 4) == "Pass") {
                 new_kifu.resize(new_kifu.length() - 4);
                 manager.debug_log("Pass detected and removed from new_kifu, updated kifu: " + new_kifu, PositionManager::LogLevel::DEBUG);
