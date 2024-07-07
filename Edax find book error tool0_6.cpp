@@ -558,7 +558,6 @@ bool judge_mismatch(const Position& child_position, const Position& parent_posit
 
 // 不一致発見の場合の処理
 void mismatch_process(const Position& child_position, const std::string& kifu, const std::string& transformation_name, const std::string& output_path, PositionManager& manager, int8_t child_eval, int8_t parent_eval, int mode) {
-    std::vector<std::pair<std::string, uint8_t>> matching_moves;
 
     // 出力ファイルを開く
     std::ofstream output_file(output_path, std::ios::app | std::ios::binary);
@@ -661,12 +660,6 @@ void main_process_recursive(Position& current_position, std::string current_kifu
     if (manager.loop_count == 1 || manager.loop_count % 100000 == 0) {
         std::cout << "\r" << manager.loop_count << " Links or Leaf processed" << std::flush;
     }
-    // パスの処理
-    if (current_kifu.length() >= 4 && current_kifu.substr(current_kifu.length() - 4) == "Pass") {
-        current_kifu = current_kifu.substr(0, current_kifu.length() - 4);
-        manager.debug_log("Pass detected, updated kifu: " + current_kifu, PositionManager::LogLevel::DEBUG);
-        manager.current_kifu = current_kifu;
-    }
 
     // 子positionを得る
     Position child_position;
@@ -688,6 +681,12 @@ void main_process_recursive(Position& current_position, std::string current_kifu
             
         // 比較関数と不一致の場合出力をする関数を呼び出し
         else {
+        　　 // パスの処理（new_kifuに対して行う）
+            if (new_kifu.length() >= 4 && new_kifu.substr(new_kifu.length() - 4) == "Pass") {
+                new_kifu.resize(new_kifu.length() - 4);
+                manager.debug_log("Pass detected and removed from new_kifu, updated kifu: " + new_kifu, PositionManager::LogLevel::DEBUG);
+            }
+            
             bool mismatch = judge_mismatch(child_position, current_position, move, mode, manager);
             if (mismatch) {
                 mismatch_process(child_position, new_kifu, transformation_name, output_path, manager,
