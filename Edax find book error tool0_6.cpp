@@ -814,10 +814,10 @@ std::tuple<Position, std::string, std::string> process_position(Position& positi
     if (it != book_positions.end()) {
         Position& book_position = it->second;
         bool updated = false;
-        auto it = std::find_if(book_position.links.begin(), book_position.links.end(),
+        auto link_it = std::find_if(book_position.links.begin(), book_position.links.end(),
             [normalized_move](const auto& link) { return link.move == normalized_move; });
-        if (it != book_position.links.end()) {
-            it->visited = true;
+        if (link_it != book_position.links.end()) {
+            link_it->visited = true;
             manager.debug_log("Parent link visited flag updated: move=" + std::to_string(normalized_move) + ", visited=True", PositionManager::LogLevel::DEBUG);
             updated = true;
         }
