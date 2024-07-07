@@ -90,8 +90,11 @@ public:
         LogLevel level = LogLevel::ERROR,
         bool auto_adjust = false,
         LogLevel adjusted_level = LogLevel::INFO)
-        : book_path(book_path), debug_log_path(debug_log_path),
-        log_level(level), current_kifu(""),
+        : book_path(book_path),
+        debug_log_path(debug_log_path),
+        current_position(),  // デフォルト初期化
+        current_kifu(""),
+        log_level(level),
         auto_adjust_log_level(auto_adjust),
         adjusted_log_level(adjusted_level) {
         init_debug_log();
@@ -444,8 +447,8 @@ std::tuple<Position, std::string, std::string, uint8_t> get_children(PositionMan
 std::tuple<Position, std::string, std::string> process_position(Position& position, const std::string& kifu, uint8_t move, PositionManager& manager);
 std::tuple<Position, std::string> create_position_data(PositionManager& manager, int move = -1);
 std::tuple<std::string, std::string> convert_move_to_str(int move, const std::string& kifu, PositionManager& manager);
-Position flip_stones(const Position& position, const std::string& move_str, PositionManager& manager);
-uint64_t shift(uint64_t bit, int direction);
+Position flip_stones(const Position& position, const std::string& move_str);
+uint64_t shift(uint64_t b, int dir);
 std::tuple<std::tuple<uint64_t, uint64_t>, std::string> normalize_position(uint64_t my_stones, uint64_t opponent_stones, PositionManager& manager);
 int denormalize_move(int move, const std::string& transformation_name, PositionManager& manager);
 int rotate_move_90(int move);
@@ -465,11 +468,11 @@ inline int8_t calculate_parent_eval(const Position& parent_position, uint8_t mov
     int8_t parent_eval = -64;// -64で初期化
 
     // 親ポジションの該当するリンクの評価値を検索
-    for (const auto& link : parent_position.links) {
-        if (link.move == move) {
-            parent_eval = link.eval_link;
-            return parent_eval;
-        }
+    auto it = std::find_if(parent_position.links.begin(), parent_position.links.end(),
+        [move](const auto& link) { return link.move == move; });
+    if (it != parent_position.links.end()) {
+        parent_eval = it->eval_link;
+        return parent_eval;
     }
 
     // リーフの評価値から取得した場合、INFOレベルのデバッグログを出力
@@ -811,13 +814,12 @@ std::tuple<Position, std::string, std::string> process_position(Position& positi
     if (it != book_positions.end()) {
         Position& book_position = it->second;
         bool updated = false;
-        for (Link& link : book_position.links) {
-            if (link.move == normalized_move) {
-                link.visited = true;
-                manager.debug_log("Parent link visited flag updated: move=" + std::to_string(normalized_move) + ", visited=True", PositionManager::LogLevel::DEBUG);
-                updated = true;
-                break;
-            }
+        auto it = std::find_if(book_position.links.begin(), book_position.links.end(),
+            [normalized_move](const auto& link) { return link.move == normalized_move; });
+        if (it != book_position.links.end()) {
+            it->visited = true;
+            manager.debug_log("Parent link visited flag updated: move=" + std::to_string(normalized_move) + ", visited=True", PositionManager::LogLevel::DEBUG);
+            updated = true;
         }
         // リーフも同様に処理
         if (!updated && book_position.leaf.move == normalized_move) {
@@ -899,7 +901,7 @@ std::tuple<Position, std::string> create_position_data(PositionManager& manager,
     // 二つの関数を呼び出して子ポジションを実際に作るところ
     std::tie(move_str, new_kifu) = convert_move_to_str(move, manager.current_kifu, manager);
 
-    Position child_position = flip_stones(manager.current_position, move_str, manager);
+    Position child_position = flip_stones(manager.current_position, move_str);
     child_position.links.clear();
 
     // 返値: 手を表す文字列、更新された棋譜のタプル
@@ -964,7 +966,7 @@ inline uint64_t flip_all_directions(uint64_t player, uint64_t opponent, uint64_t
         flip_line(player, opponent, 7, move);
 }
 //　ひっくり返し関数本体
-Position flip_stones(const Position& position, const std::string& move_str, PositionManager& manager) {
+Position flip_stones(const Position& position, const std::string& move_str) {
     uint64_t my_stones = position.my_stones;
     uint64_t opponent_stones = position.opponent_stones;
 
