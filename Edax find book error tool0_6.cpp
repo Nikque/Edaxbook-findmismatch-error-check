@@ -676,7 +676,7 @@ void main_process_recursive(Position& current_position, std::string current_kifu
 
         std::tie(child_position, new_kifu, transformation_name, move) = get_children(manager, current_position);
 
-        // 最終関数起動条件を満たした時、理由と共にデバッグログに出力して起動
+        // この条件を満たしたらこのmain_process_recursiveの処理を終わり一つ上のmain_process_recursiveへ移動
         if (transformation_name == "child_not_found") {
             manager.debug_log("Child position not found. Ending current branch.", PositionManager::LogLevel::DEBUG);
             break;
