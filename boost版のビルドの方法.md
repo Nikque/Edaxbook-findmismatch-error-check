@@ -23,11 +23,10 @@ d. プロジェクトの設定:
 
 プロジェクトファイル（.vcxproj）をテキストエディタで開きます。
 <ImportGroup Label="PropertySheets" Condition="..."> セクションの後に以下を追加します：
-xmlCopy<ImportGroup Label="PropertySheets">
-  <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
-  <Import Project="$(BOOST_ROOT)\boost.props" Condition="exists('$(BOOST_ROOT)\boost.props')" />
-</ImportGroup>
-
+  <ImportGroup Label="PropertySheets">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+    <Import Project="$(BOOST_ROOT)\boost.props" Condition="exists('$(BOOST_ROOT)\boost.props')" />
+  </ImportGroup>
 
 e. 環境変数の設定:
 
