@@ -24,4 +24,4 @@ Edax形式のbookを走査して問題のある棋譜を出力するツールの
 - `config.ini`と`specified_positions.txt` — リポジトリまたはSource code zipに含まれる設定例とmode 5の入力例
 - 対応するソースはリポジトリの`Edax find book error tool0_8boost.cpp`と`Edax find book error tool0_8.cpp`です。
 
-Visual Studio 2022、C++20、x64で両版をコンパイルし、mode 1～4・6/7の回帰テストと小さなbookの読込テストを確認しました。28 GBのbookを用いた新版全体の実行時間・ピークメモリの測定は完了していません。
+Visual Studio 2022、C++20、x64で両版をコンパイルし、mode 1～4・6/7の回帰テストと小さなbookの読込テストを確認しました。ピークメモリの測定は完了していません。
