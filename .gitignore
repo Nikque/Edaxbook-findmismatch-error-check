@@ -1,0 +1,6 @@
+/dist/
+/book.dat
+/mismatched_positions.txt
+/debuglog.txt
+*.obj
+*.pdb
